@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HIS Upload</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f4f8;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:20px}
+.card{background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.10);padding:28px 20px;width:100%;max-width:420px}
+.logo{font-size:40px;text-align:center;margin-bottom:6px}
+h1{color:#1a5fa8;font-size:20px;text-align:center;margin-bottom:2px}
+.sub{color:#888;font-size:12px;text-align:center;margin-bottom:20px}
+
+.preview-wrap{width:100%;aspect-ratio:4/3;background:#f0f4f8;border-radius:12px;border:2px dashed #c0cfe0;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:12px;position:relative}
+.preview-wrap img{width:100%;height:100%;object-fit:contain}
+.ph{color:#aaa;font-size:13px;text-align:center}
+.ph span{font-size:32px;display:block;margin-bottom:6px}
+
+#btnDelete{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.55);color:#fff;border:none;border-radius:50%;width:32px;height:32px;font-size:16px;cursor:pointer;display:none;align-items:center;justify-content:center;z-index:10}
+#btnDelete.show{display:flex}
+
+.btn{display:block;width:100%;padding:14px;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;transition:opacity .15s,transform .1s;margin-bottom:8px}
+.btn:last-child{margin-bottom:0}
+.btn:active{transform:scale(.98)}
+.btn-blue{background:#1a5fa8;color:#fff}
+.btn-gray{background:#e8eef5;color:#1a5fa8;border:2px solid #1a5fa8}
+.btn-green{background:#1e8a4a;color:#fff}
+.btn-green:disabled{opacity:.35;cursor:not-allowed;transform:none}
+
+#fn{font-size:11px;color:#666;margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;min-height:16px}
+#st{padding:13px;border-radius:10px;font-size:14px;display:none;margin-top:10px;line-height:1.5;text-align:center}
+.st-loading{background:#fff8e1;color:#7a5700}
+.st-ok{background:#e6f4ea;color:#1a5c2a}
+.st-err{background:#fdecea;color:#a32020}
+
+#camControls{display:none;gap:8px;margin-bottom:8px}
+#camControls.show{display:flex}
+#camControls .btn{margin-bottom:0;flex:1}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">🏥</div>
+  <h1>HIS Upload</h1>
+  <p class="sub">Tải ảnh lên hệ thống VNPT HIS</p>
+
+  <div class="preview-wrap">
+    <div class="ph" id="ph"><span>🖼️</span>Xem trước ảnh</div>
+    <img id="previewImg" style="display:none">
+    <button id="btnDelete" title="Xóa ảnh" onclick="clearFile()">🗑</button>
+  </div>
+
+  <!-- Input cho thư viện -->
+  <input id="fi" type="file" accept="image/*" style="display:none">
+  <!-- Input cho camera native -->
+  <input id="fiCamera" type="file" accept="image/*" capture="environment" style="display:none">
+  
+  <p id="fn"></p>
+
+  <button class="btn btn-blue" onclick="document.getElementById('fi').click()">🖼️ Chọn ảnh từ thư viện</button>
+  <button class="btn btn-gray" onclick="openCamera()">📸 Chụp ảnh</button>
+
+  <div id="camControls">
+    <button class="btn btn-blue" id="btnRetake" onclick="openCamera()">🔄 Chụp lại</button>
+  </div>
+
+  <button class="btn btn-green" id="bu" onclick="go()" disabled>⬆️ Upload lên HIS</button>
+  <div id="st"></div>
+</div>
+
+<script>
+var sessionUrl = null;
+var file = null;
+
+/* Decode session URL */
+(function () {
+  var s = new URLSearchParams(location.search).get('s');
+  if (!s) { showErr('❌ Thiếu tham số session. Hãy quét lại mã QR.'); return; }
+  s = s.replace(/-/g, '+').replace(/_/g, '/');
+  while (s.length % 4) s += '=';
+  try { sessionUrl = atob(s); }
+  catch (e) { showErr('❌ Session URL không hợp lệ. Hãy quét lại mã QR.'); }
+})();
+
+/* Xóa ảnh */
+function clearFile() {
+  file = null;
+  document.getElementById('fi').value = '';
+  document.getElementById('fiCamera').value = '';
+  document.getElementById('bu').disabled = true;
+  document.getElementById('fn').textContent = '';
+  document.getElementById('previewImg').style.display = 'none';
+  document.getElementById('previewImg').src = '';
+  document.getElementById('ph').style.display = '';
+  document.getElementById('btnDelete').classList.remove('show');
+  document.getElementById('btnRetake').style.display = 'none';
+  document.getElementById('camControls').classList.remove('show');
+}
+
+/* Chọn ảnh từ thư viện */
+document.getElementById('fi').onchange = function () {
+  var f = this.files[0];
+  if (!f) return;
+  
+  // Ẩn controls camera nếu đang hiện
+  document.getElementById('camControls').classList.remove('show');
+  
+  setFile(f, f.name);
+  var reader = new FileReader();
+  reader.onload = function (e) {
+    showPreviewImg(e.target.result);
+  };
+  reader.readAsDataURL(f);
+};
+
+/* Mở camera native */
+function openCamera() {
+  // Reset preview
+  document.getElementById('previewImg').style.display = 'none';
+  document.getElementById('ph').style.display = '';
+  document.getElementById('btnDelete').classList.remove('show');
+  document.getElementById('camControls').classList.remove('show');
+  file = null;
+  document.getElementById('bu').disabled = true;
+  document.getElementById('fn').textContent = '';
+  
+  // Trigger camera native
+  document.getElementById('fiCamera').click();
+}
+
+/* Xử lý ảnh từ camera native */
+document.getElementById('fiCamera').onchange = function () {
+  var f = this.files[0];
+  if (!f) {
+    console.log('Không có file nào được chọn');
+    return;
+  }
+  
+  console.log('Đã chọn file:', f.name, f.size, 'bytes');
+  
+  var urlParams = new URLSearchParams(window.location.search);
+  var tenBN = decodeURIComponent(urlParams.get('ten') || 'BENH_NHAN');
+  var maBN = urlParams.get('ma') || '00000000';
+  var thoiGianGoc = decodeURIComponent(urlParams.get('thoigian') || '');
+  
+  var gio = '', ngay = '';
+  if (thoiGianGoc) {
+    var parts = thoiGianGoc.split(' ');
+    if (parts.length >= 2) {
+      ngay = parts[0].replace(/\//g, '-');
+      var timeParts = parts[1].split(':');
+      gio = timeParts[0] + 'h' + timeParts[1];
+    }
+  } else {
+    var now = new Date();
+    gio = now.getHours().toString().padStart(2,'0') + 'h' +
+          now.getMinutes().toString().padStart(2,'0');
+    ngay = now.getDate().toString().padStart(2,'0') + '-' + 
+           (now.getMonth()+1).toString().padStart(2,'0') + '-' + 
+           now.getFullYear();
+  }
+  
+  var fileName = tenBN + ' ' + maBN + ' ' + gio + ' ' + ngay + '.jpg';
+  setFile(f, fileName);
+  
+  var reader = new FileReader();
+  reader.onload = function (e) {
+    console.log('Đã load ảnh thành công');
+    showPreviewImg(e.target.result);
+    // Hiện nút chụp lại
+    document.getElementById('camControls').classList.add('show');
+    document.getElementById('btnRetake').style.display = '';
+  };
+  reader.readAsDataURL(f);
+};
+
+function showPreviewImg(src) {
+  var img = document.getElementById('previewImg');
+  img.src = src;
+  img.style.display = '';
+  document.getElementById('ph').style.display = 'none';
+  document.getElementById('btnDelete').classList.add('show');
+}
+
+function setFile(blob, name) {
+  file = blob;
+  document.getElementById('fn').textContent = '✅ ' + name;
+  document.getElementById('bu').disabled = false;
+}
+
+/* Upload */
+async function go() {
+  if (!file || !sessionUrl) return;
+  var st = document.getElementById('st');
+  var bu = document.getElementById('bu');
+  st.className = 'st-loading'; st.style.display = 'block';
+  st.textContent = '⏳ Đang upload…'; bu.disabled = true;
+  try {
+    var r = await fetch(sessionUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Length': file.size,
+        'Content-Range' : 'bytes 0-' + (file.size - 1) + '/' + file.size,
+        'Content-Type'  : file.type || 'image/jpeg'
+      },
+      body: file
+    });
+    if (r.ok || r.status === 201) {
+      st.className = 'st-ok';
+      st.textContent = '✅ Upload thành công! Quay lại máy tính để xem ảnh.';
+    } else {
+      st.className = 'st-err';
+      st.textContent = '❌ Lỗi HTTP ' + r.status + '. Thử lại hoặc quét mã QR mới.';
+      bu.disabled = false;
+    }
+  } catch (e) {
+    st.className = 'st-err';
+    st.textContent = '❌ ' + (e.message || e);
+    bu.disabled = false;
+  }
+}
+
+function showErr(msg) {
+  var st = document.getElementById('st');
+  st.className = 'st-err'; st.style.display = 'block'; st.textContent = msg;
+  document.getElementById('bu').disabled = true;
+}
+</script>
+</body>
+</html>
