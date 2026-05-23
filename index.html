@@ -13,7 +13,7 @@ h1{color:#1a5fa8;font-size:20px;text-align:center;margin-bottom:2px}
 .sub{color:#888;font-size:12px;text-align:center;margin-bottom:20px}
 
 .preview-wrap{width:100%;aspect-ratio:4/3;background:#f0f4f8;border-radius:12px;border:2px dashed #c0cfe0;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:12px;position:relative}
-.preview-wrap video,.preview-wrap img{width:100%;height:100%;object-fit:contain}
+.preview-wrap img{width:100%;height:100%;object-fit:contain}
 .ph{color:#aaa;font-size:13px;text-align:center}
 .ph span{font-size:32px;display:block;margin-bottom:6px}
 
@@ -47,20 +47,22 @@ h1{color:#1a5fa8;font-size:20px;text-align:center;margin-bottom:2px}
 
   <div class="preview-wrap">
     <div class="ph" id="ph"><span>🖼️</span>Xem trước ảnh</div>
-    <video id="camVideo" autoplay playsinline style="display:none"></video>
     <img id="previewImg" style="display:none">
     <button id="btnDelete" title="Xóa ảnh" onclick="clearFile()">🗑</button>
   </div>
 
+  <!-- Input cho thư viện -->
+  <input id="fi" type="file" accept="image/*" style="display:none">
+  <!-- Input cho camera native -->
   <input id="fiCamera" type="file" accept="image/*" capture="environment" style="display:none">
+  
   <p id="fn"></p>
 
   <button class="btn btn-blue" onclick="document.getElementById('fi').click()">🖼️ Chọn ảnh từ thư viện</button>
   <button class="btn btn-gray" onclick="openCamera()">📸 Chụp ảnh</button>
 
   <div id="camControls">
-    <button class="btn btn-gray" id="btnCapture" onclick="capturePhoto()">📸 Chụp</button>
-    <button class="btn btn-blue" id="btnRetake" onclick="openCamera()" style="display:none">🔄 Chụp lại</button>
+    <button class="btn btn-blue" id="btnRetake" onclick="openCamera()">🔄 Chụp lại</button>
   </div>
 
   <button class="btn btn-green" id="bu" onclick="go()" disabled>⬆️ Upload lên HIS</button>
@@ -69,8 +71,7 @@ h1{color:#1a5fa8;font-size:20px;text-align:center;margin-bottom:2px}
 
 <script>
 var sessionUrl = null;
-var file       = null;
-var camStream  = null;
+var file = null;
 
 /* Decode session URL */
 (function () {
@@ -86,7 +87,7 @@ var camStream  = null;
 function clearFile() {
   file = null;
   document.getElementById('fi').value = '';
-  document.getElementById('fiCamera').value = ''; // Thêm dòng này
+  document.getElementById('fiCamera').value = '';
   document.getElementById('bu').disabled = true;
   document.getElementById('fn').textContent = '';
   document.getElementById('previewImg').style.display = 'none';
@@ -94,15 +95,15 @@ function clearFile() {
   document.getElementById('ph').style.display = '';
   document.getElementById('btnDelete').classList.remove('show');
   document.getElementById('btnRetake').style.display = 'none';
-  document.getElementById('btnCapture').style.display = '';
   document.getElementById('camControls').classList.remove('show');
 }
 
-/* Chọn ảnh từ thư viện (không qua Gemini) */
+/* Chọn ảnh từ thư viện */
 document.getElementById('fi').onchange = function () {
   var f = this.files[0];
   if (!f) return;
-  stopCamera();
+  
+  // Ẩn controls camera nếu đang hiện
   document.getElementById('camControls').classList.remove('show');
   
   setFile(f, f.name);
@@ -115,10 +116,9 @@ document.getElementById('fi').onchange = function () {
 
 /* Mở camera native */
 function openCamera() {
+  // Reset preview
   document.getElementById('previewImg').style.display = 'none';
   document.getElementById('ph').style.display = '';
-  document.getElementById('btnCapture').style.display = 'none';
-  document.getElementById('btnRetake').style.display = 'none';
   document.getElementById('btnDelete').classList.remove('show');
   document.getElementById('camControls').classList.remove('show');
   file = null;
@@ -128,10 +128,16 @@ function openCamera() {
   // Trigger camera native
   document.getElementById('fiCamera').click();
 }
+
 /* Xử lý ảnh từ camera native */
 document.getElementById('fiCamera').onchange = function () {
   var f = this.files[0];
-  if (!f) return;
+  if (!f) {
+    console.log('Không có file nào được chọn');
+    return;
+  }
+  
+  console.log('Đã chọn file:', f.name, f.size, 'bytes');
   
   var urlParams = new URLSearchParams(window.location.search);
   var tenBN = decodeURIComponent(urlParams.get('ten') || 'BENH_NHAN');
@@ -160,13 +166,15 @@ document.getElementById('fiCamera').onchange = function () {
   
   var reader = new FileReader();
   reader.onload = function (e) {
+    console.log('Đã load ảnh thành công');
     showPreviewImg(e.target.result);
+    // Hiện nút chụp lại
     document.getElementById('camControls').classList.add('show');
-    document.getElementById('btnCapture').style.display = 'none';
     document.getElementById('btnRetake').style.display = '';
   };
   reader.readAsDataURL(f);
 };
+
 function showPreviewImg(src) {
   var img = document.getElementById('previewImg');
   img.src = src;
