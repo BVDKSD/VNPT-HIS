@@ -52,7 +52,7 @@ h1{color:#1a5fa8;font-size:20px;text-align:center;margin-bottom:2px}
     <button id="btnDelete" title="Xóa ảnh" onclick="clearFile()">🗑</button>
   </div>
 
-  <input id="fi" type="file" accept="image/*" style="display:none">
+  <input id="fiCamera" type="file" accept="image/*" capture="environment" style="display:none">
   <p id="fn"></p>
 
   <button class="btn btn-blue" onclick="document.getElementById('fi').click()">🖼️ Chọn ảnh từ thư viện</button>
@@ -86,6 +86,7 @@ var camStream  = null;
 function clearFile() {
   file = null;
   document.getElementById('fi').value = '';
+  document.getElementById('fiCamera').value = ''; // Thêm dòng này
   document.getElementById('bu').disabled = true;
   document.getElementById('fn').textContent = '';
   document.getElementById('previewImg').style.display = 'none';
@@ -95,7 +96,6 @@ function clearFile() {
   document.getElementById('btnRetake').style.display = 'none';
   document.getElementById('btnCapture').style.display = '';
   document.getElementById('camControls').classList.remove('show');
-  stopCamera();
 }
 
 /* Chọn ảnh từ thư viện (không qua Gemini) */
@@ -113,81 +113,60 @@ document.getElementById('fi').onchange = function () {
   reader.readAsDataURL(f);
 };
 
-/* Mở camera */
-async function openCamera() {
-  stopCamera();
+/* Mở camera native */
+function openCamera() {
   document.getElementById('previewImg').style.display = 'none';
   document.getElementById('ph').style.display = '';
-  document.getElementById('btnCapture').style.display = '';
+  document.getElementById('btnCapture').style.display = 'none';
   document.getElementById('btnRetake').style.display = 'none';
   document.getElementById('btnDelete').classList.remove('show');
-  document.getElementById('camControls').classList.add('show');
+  document.getElementById('camControls').classList.remove('show');
   file = null;
   document.getElementById('bu').disabled = true;
-  try {
-    camStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
-    });
-    var vid = document.getElementById('camVideo');
-    vid.srcObject = camStream;
-    vid.style.display = '';
-    document.getElementById('ph').style.display = 'none';
-    document.getElementById('fn').textContent = '📹 Camera đang mở...';
-  } catch (e) {
-    document.getElementById('camControls').classList.remove('show');
-    showErr('❌ Không mở được camera: ' + (e.message || e));
-  }
+  document.getElementById('fn').textContent = '';
+  
+  // Trigger camera native
+  document.getElementById('fiCamera').click();
 }
-
-function stopCamera() {
-  if (camStream) { camStream.getTracks().forEach(function (t) { t.stop(); }); camStream = null; }
-  var vid = document.getElementById('camVideo');
-  vid.srcObject = null;
-  vid.style.display = 'none';
-}
-
-/* Chụp ảnh (đã sửa định dạng ngày: dấu gạch ngang thay vì gạch chéo) */
-function capturePhoto() {
-  var vid = document.getElementById('camVideo');
-  if (!vid.videoWidth) { showErr('❌ Camera chưa sẵn sàng, thử lại.'); return; }
-  var canvas = document.createElement('canvas');
-  canvas.width  = vid.videoWidth;
-  canvas.height = vid.videoHeight;
-  canvas.getContext('2d').drawImage(vid, 0, 0);
-  stopCamera();
-  canvas.toBlob(function (blob) {
-    var urlParams = new URLSearchParams(window.location.search);
-    var tenBN = decodeURIComponent(urlParams.get('ten') || 'BENH_NHAN');
-    var maBN = urlParams.get('ma') || '00000000';
-    var thoiGianGoc = decodeURIComponent(urlParams.get('thoigian') || '');
-    
-    var gio = '', ngay = '';
-    if (thoiGianGoc) {
-        var parts = thoiGianGoc.split(' ');
-        if (parts.length >= 2) {
-            // SỬA: Thay / thành - (định dạng ngày dd-mm-yyyy)
-            ngay = parts[0].replace(/\//g, '-');
-            var timeParts = parts[1].split(':');
-            gio = timeParts[0] + 'h' + timeParts[1];
-        }
-    } else {
-        var now = new Date();
-        gio = now.getHours().toString().padStart(2,'0') + 'h' +
-              now.getMinutes().toString().padStart(2,'0');
-        // SỬA: Dùng - thay vì / (định dạng dd-mm-yyyy)
-        ngay = now.getDate().toString().padStart(2,'0') + '-' + 
-               (now.getMonth()+1).toString().padStart(2,'0') + '-' + 
-               now.getFullYear();
+/* Xử lý ảnh từ camera native */
+document.getElementById('fiCamera').onchange = function () {
+  var f = this.files[0];
+  if (!f) return;
+  
+  var urlParams = new URLSearchParams(window.location.search);
+  var tenBN = decodeURIComponent(urlParams.get('ten') || 'BENH_NHAN');
+  var maBN = urlParams.get('ma') || '00000000';
+  var thoiGianGoc = decodeURIComponent(urlParams.get('thoigian') || '');
+  
+  var gio = '', ngay = '';
+  if (thoiGianGoc) {
+    var parts = thoiGianGoc.split(' ');
+    if (parts.length >= 2) {
+      ngay = parts[0].replace(/\//g, '-');
+      var timeParts = parts[1].split(':');
+      gio = timeParts[0] + 'h' + timeParts[1];
     }
-    
-    var fileName = tenBN + ' ' + maBN + ' ' + gio + ' ' + ngay + '.jpg';
-    setFile(blob, fileName);
-    showPreviewImg(URL.createObjectURL(blob));
+  } else {
+    var now = new Date();
+    gio = now.getHours().toString().padStart(2,'0') + 'h' +
+          now.getMinutes().toString().padStart(2,'0');
+    ngay = now.getDate().toString().padStart(2,'0') + '-' + 
+           (now.getMonth()+1).toString().padStart(2,'0') + '-' + 
+           now.getFullYear();
+  }
+  
+  var fileName = tenBN + ' ' + maBN + ' ' + gio + ' ' + ngay + '.jpg';
+  setFile(f, fileName);
+  
+  var reader = new FileReader();
+  reader.onload = function (e) {
+    showPreviewImg(e.target.result);
+    document.getElementById('camControls').classList.add('show');
     document.getElementById('btnCapture').style.display = 'none';
     document.getElementById('btnRetake').style.display = '';
-  }, 'image/jpeg', 0.92);
-}
-
+  };
+  reader.readAsDataURL(f);
+};
 function showPreviewImg(src) {
   var img = document.getElementById('previewImg');
   img.src = src;
