@@ -207,10 +207,11 @@ async function go() {
       },
       body: file
     });
-    if (r.ok || r.status === 201) {
+     if (r.ok || r.status === 201) {
       st.className = 'st-ok';
       st.textContent = '✅ Upload thành công! Quay lại máy tính để xem ảnh.';
-    } else {
+      console.log('✅ [Mobile] Upload thành công, máy tính sẽ tự động dọn dẹp');
+  } else {
       st.className = 'st-err';
       st.textContent = '❌ Lỗi HTTP ' + r.status + '. Thử lại hoặc quét mã QR mới.';
       bu.disabled = false;
