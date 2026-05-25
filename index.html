@@ -162,7 +162,7 @@ document.getElementById('fiCamera').onchange = function () {
   }
   
   // Đã sửa: đuôi file .jpg -> .png
-  var fileName = tenBN + ' ' + maBN + ' ' + gio + ' ' + ngay + '.png';
+  var fileName = tenBN + ' ' + maBN + ' ' + gio + ' ' + ngay + '.jpg';
   setFile(f, fileName);
   
   var reader = new FileReader();
@@ -203,7 +203,7 @@ async function go() {
       headers: {
         'Content-Length': file.size,
         'Content-Range' : 'bytes 0-' + (file.size - 1) + '/' + file.size,
-        'Content-Type'  : file.type || 'image/png'   // Đã sửa: image/jpeg -> image/png
+        'Content-Type'  : file.type || 'image/jpeg'
       },
       body: file
     });
