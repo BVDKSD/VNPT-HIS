@@ -65,7 +65,7 @@ h1{color:#1a5fa8;font-size:20px;text-align:center;margin-bottom:2px}
     <button class="btn btn-blue" id="btnRetake" onclick="openCamera()">🔄 Chụp lại</button>
   </div>
 
-  <button class="btn btn-green" id="bu" onclick="go()" disabled>⬆️ Upload lên HIS</button>
+  <button class="btn btn-green" id="bu" onclick="go()" disabled>⬆️ Upload lên OneDrive</button>
   <div id="st"></div>
 </div>
 
@@ -142,27 +142,33 @@ document.getElementById('fiCamera').onchange = function () {
   var urlParams = new URLSearchParams(window.location.search);
   var tenBN = decodeURIComponent(urlParams.get('ten') || 'BENH_NHAN');
   var maBN = urlParams.get('ma') || '00000000';
-  var thoiGianGoc = decodeURIComponent(urlParams.get('thoigian') || '');
-  
-  var gio = '', ngay = '';
-  if (thoiGianGoc) {
-    var parts = thoiGianGoc.split(' ');
-    if (parts.length >= 2) {
-      ngay = parts[0].replace(/\//g, '-');
-      var timeParts = parts[1].split(':');
-      gio = timeParts[0] + 'h' + timeParts[1];
-    }
+  var soPhieu = urlParams.get('sp') || '';
+
+  var fileName;
+  if (soPhieu) {
+    // Khớp đúng quy tắc đặt tên file thật đã lưu trên OneDrive: Tên BN + Mã BN + Số phiếu
+    fileName = tenBN + ' ' + maBN + ' ' + soPhieu + '.jpg';
   } else {
-    var now = new Date();
-    gio = now.getHours().toString().padStart(2,'0') + 'h' +
-          now.getMinutes().toString().padStart(2,'0');
-    ngay = now.getDate().toString().padStart(2,'0') + '-' + 
-           (now.getMonth()+1).toString().padStart(2,'0') + '-' + 
-           now.getFullYear();
+    // Dự phòng cho trường hợp mã QR cũ chưa có tham số &sp= (số phiếu)
+    var thoiGianGoc = decodeURIComponent(urlParams.get('thoigian') || '');
+    var gio = '', ngay = '';
+    if (thoiGianGoc) {
+      var parts = thoiGianGoc.split(' ');
+      if (parts.length >= 2) {
+        ngay = parts[0].replace(/\//g, '-');
+        var timeParts = parts[1].split(':');
+        gio = timeParts[0] + 'h' + timeParts[1];
+      }
+    } else {
+      var now = new Date();
+      gio = now.getHours().toString().padStart(2,'0') + 'h' +
+            now.getMinutes().toString().padStart(2,'0');
+      ngay = now.getDate().toString().padStart(2,'0') + '-' +
+             (now.getMonth()+1).toString().padStart(2,'0') + '-' +
+             now.getFullYear();
+    }
+    fileName = tenBN + ' ' + maBN + ' ' + gio + ' ' + ngay + '.jpg';
   }
-  
-  // Đã sửa: đuôi file .jpg -> .png
-  var fileName = tenBN + ' ' + maBN + ' ' + gio + ' ' + ngay + '.jpg';
   setFile(f, fileName);
   
   var reader = new FileReader();
