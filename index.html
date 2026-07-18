@@ -98,15 +98,39 @@ function clearFile() {
   document.getElementById('camControls').classList.remove('show');
 }
 
+/* Build tên file chuẩn từ tham số URL (dùng chung cho cả chụp ảnh & chọn từ thư viện) */
+function buildFileName() {
+  var urlParams = new URLSearchParams(window.location.search);
+  var tenBN = decodeURIComponent(urlParams.get('ten') || 'BENH_NHAN');
+  var maBN = urlParams.get('ma') || '00000000';
+  var soPhieu = urlParams.get('sp') || '';
+
+  // Đọc TG chỉ định từ &tg= (vd: "01/07/2026 08:21") → chuyển thành "08h21 01-07-2026"
+  var tgRaw = decodeURIComponent(urlParams.get('tg') || '');
+  var tgM = tgRaw.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
+  var tgStr = tgM ? tgM[4] + 'h' + tgM[5] + ' ' + tgM[1] + '-' + tgM[2] + '-' + tgM[3] : '';
+
+  if (soPhieu && tgStr) {
+    return tenBN + ' ' + maBN + ' ' + soPhieu + ' ' + tgStr + '.jpg';
+  }
+  return null; // QR cũ hoặc thiếu tham số
+}
+
 /* Chọn ảnh từ thư viện */
 document.getElementById('fi').onchange = function () {
   var f = this.files[0];
   if (!f) return;
-  
+
   // Ẩn controls camera nếu đang hiện
   document.getElementById('camControls').classList.remove('show');
-  
-  setFile(f, f.name);
+
+  var fileName = buildFileName();
+  if (!fileName) {
+    showErr('❌ Mã QR cũ hoặc thiếu dữ liệu. Hãy quét lại mã QR mới từ máy tính.');
+    return;
+  }
+
+  setFile(f, fileName);
   var reader = new FileReader();
   reader.onload = function (e) {
     showPreviewImg(e.target.result);
@@ -138,21 +162,9 @@ document.getElementById('fiCamera').onchange = function () {
   }
   
   console.log('Đã chọn file:', f.name, f.size, 'bytes');
-  
-  var urlParams = new URLSearchParams(window.location.search);
-  var tenBN = decodeURIComponent(urlParams.get('ten') || 'BENH_NHAN');
-  var maBN = urlParams.get('ma') || '00000000';
-  var soPhieu = urlParams.get('sp') || '';
 
-  // Đọc TG chỉ định từ &tg= (vd: "01/07/2026 08:21") → chuyển thành "08h21 01-07-2026"
-  var tgRaw = decodeURIComponent(urlParams.get('tg') || '');
-  var tgM = tgRaw.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
-  var tgStr = tgM ? tgM[4] + 'h' + tgM[5] + ' ' + tgM[1] + '-' + tgM[2] + '-' + tgM[3] : '';
-
-  var fileName;
-  if (soPhieu && tgStr) {
-    fileName = tenBN + ' ' + maBN + ' ' + soPhieu + ' ' + tgStr + '.jpg';
-  } else {
+  var fileName = buildFileName();
+  if (!fileName) {
     // QR cũ không có đủ tham số — báo lỗi, không upload
     showErr('❌ Mã QR cũ hoặc thiếu dữ liệu. Hãy quét lại mã QR mới từ máy tính.');
     return;
