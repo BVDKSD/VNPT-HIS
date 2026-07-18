@@ -144,30 +144,18 @@ document.getElementById('fiCamera').onchange = function () {
   var maBN = urlParams.get('ma') || '00000000';
   var soPhieu = urlParams.get('sp') || '';
 
+  // Đọc TG chỉ định từ &tg= (vd: "01/07/2026 08:21") → chuyển thành "08h21 01-07-2026"
+  var tgRaw = decodeURIComponent(urlParams.get('tg') || '');
+  var tgM = tgRaw.match(/(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/);
+  var tgStr = tgM ? tgM[4] + 'h' + tgM[5] + ' ' + tgM[1] + '-' + tgM[2] + '-' + tgM[3] : '';
+
   var fileName;
-  if (soPhieu) {
-    // Khớp đúng quy tắc đặt tên file thật đã lưu trên OneDrive: Tên BN + Mã BN + Số phiếu
-    fileName = tenBN + ' ' + maBN + ' ' + soPhieu + '.jpg';
+  if (soPhieu && tgStr) {
+    fileName = tenBN + ' ' + maBN + ' ' + soPhieu + ' ' + tgStr + '.jpg';
   } else {
-    // Dự phòng cho trường hợp mã QR cũ chưa có tham số &sp= (số phiếu)
-    var thoiGianGoc = decodeURIComponent(urlParams.get('thoigian') || '');
-    var gio = '', ngay = '';
-    if (thoiGianGoc) {
-      var parts = thoiGianGoc.split(' ');
-      if (parts.length >= 2) {
-        ngay = parts[0].replace(/\//g, '-');
-        var timeParts = parts[1].split(':');
-        gio = timeParts[0] + 'h' + timeParts[1];
-      }
-    } else {
-      var now = new Date();
-      gio = now.getHours().toString().padStart(2,'0') + 'h' +
-            now.getMinutes().toString().padStart(2,'0');
-      ngay = now.getDate().toString().padStart(2,'0') + '-' +
-             (now.getMonth()+1).toString().padStart(2,'0') + '-' +
-             now.getFullYear();
-    }
-    fileName = tenBN + ' ' + maBN + ' ' + gio + ' ' + ngay + '.jpg';
+    // QR cũ không có đủ tham số — báo lỗi, không upload
+    showErr('❌ Mã QR cũ hoặc thiếu dữ liệu. Hãy quét lại mã QR mới từ máy tính.');
+    return;
   }
   setFile(f, fileName);
   
