@@ -42,8 +42,8 @@ h1{color:#1a5fa8;font-size:20px;text-align:center;margin-bottom:2px}
 <body>
 <div class="card">
   <div class="logo">🏥</div>
-  <h1>HIS Upload</h1>
-  <p class="sub">Tải ảnh lên hệ thống VNPT HIS</p>
+  <h1>NAS Upload</h1>
+  <p class="sub">Tải ảnh lên Mạng nội bộ</p>
 
   <div class="preview-wrap">
     <div class="ph" id="ph"><span>🖼️</span>Xem trước ảnh</div>
@@ -116,8 +116,38 @@ function buildFileName() {
   return null; // QR cũ hoặc thiếu tham số
 }
 
+/* Chuyển đổi bất kỳ ảnh nào (PNG, WEBP, v.v.) thành file .jpg thật sự,
+   đảm bảo ảnh upload lên Mạng nội bộ luôn đúng định dạng JPEG dù đuôi file là gì */
+function convertToRealJpeg(blob, quality) {
+  quality = quality || 0.92;
+  return new Promise(function (resolve, reject) {
+    var url = URL.createObjectURL(blob);
+    var img = new Image();
+    img.onload = function () {
+      URL.revokeObjectURL(url);
+      var canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      var ctx = canvas.getContext('2d');
+      // Nền trắng để tránh ảnh PNG có nền trong suốt bị chuyển thành màu đen trên JPG
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+      canvas.toBlob(function (jpegBlob) {
+        if (!jpegBlob) { reject(new Error('Không thể chuyển đổi ảnh sang JPG')); return; }
+        resolve(jpegBlob);
+      }, 'image/jpeg', quality);
+    };
+    img.onerror = function () {
+      URL.revokeObjectURL(url);
+      reject(new Error('Không thể đọc ảnh để chuyển đổi'));
+    };
+    img.src = url;
+  });
+}
+
 /* Chọn ảnh từ thư viện */
-document.getElementById('fi').onchange = function () {
+document.getElementById('fi').onchange = async function () {
   var f = this.files[0];
   if (!f) return;
 
@@ -130,12 +160,19 @@ document.getElementById('fi').onchange = function () {
     return;
   }
 
-  setFile(f, fileName);
-  var reader = new FileReader();
-  reader.onload = function (e) {
-    showPreviewImg(e.target.result);
-  };
-  reader.readAsDataURL(f);
+  var st = document.getElementById('st');
+  st.className = 'st-loading'; st.style.display = 'block';
+  st.textContent = '⏳ Đang xử lý ảnh…';
+
+  try {
+    var jpegBlob = await convertToRealJpeg(f);
+    st.style.display = 'none';
+    setFile(jpegBlob, fileName);
+    showPreviewImg(URL.createObjectURL(jpegBlob));
+  } catch (e) {
+    st.className = 'st-err';
+    st.textContent = '❌ Không thể xử lý ảnh này. Vui lòng thử lại.';
+  }
 };
 
 /* Mở camera native */
@@ -154,7 +191,7 @@ function openCamera() {
 }
 
 /* Xử lý ảnh từ camera native */
-document.getElementById('fiCamera').onchange = function () {
+document.getElementById('fiCamera').onchange = async function () {
   var f = this.files[0];
   if (!f) {
     console.log('Không có file nào được chọn');
@@ -169,17 +206,24 @@ document.getElementById('fiCamera').onchange = function () {
     showErr('❌ Mã QR cũ hoặc thiếu dữ liệu. Hãy quét lại mã QR mới từ máy tính.');
     return;
   }
-  setFile(f, fileName);
-  
-  var reader = new FileReader();
-  reader.onload = function (e) {
-    console.log('Đã load ảnh thành công');
-    showPreviewImg(e.target.result);
+
+  var st = document.getElementById('st');
+  st.className = 'st-loading'; st.style.display = 'block';
+  st.textContent = '⏳ Đang xử lý ảnh…';
+
+  try {
+    var jpegBlob = await convertToRealJpeg(f);
+    console.log('Đã chuyển đổi ảnh sang JPG thành công');
+    st.style.display = 'none';
+    setFile(jpegBlob, fileName);
+    showPreviewImg(URL.createObjectURL(jpegBlob));
     // Hiện nút chụp lại
     document.getElementById('camControls').classList.add('show');
     document.getElementById('btnRetake').style.display = '';
-  };
-  reader.readAsDataURL(f);
+  } catch (e) {
+    st.className = 'st-err';
+    st.textContent = '❌ Không thể xử lý ảnh này. Vui lòng thử lại.';
+  }
 };
 
 function showPreviewImg(src) {
