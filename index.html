@@ -42,8 +42,8 @@ h1{color:#1a5fa8;font-size:20px;text-align:center;margin-bottom:2px}
 <body>
 <div class="card">
   <div class="logo">🏥</div>
-  <h1>NAS Upload</h1>
-  <p class="sub">Tải ảnh lên Mạng nội bộ</p>
+  <h1>HIS Upload</h1>
+  <p class="sub">Gửi ảnh sang máy tính</p>
 
   <div class="preview-wrap">
     <div class="ph" id="ph"><span>🖼️</span>Xem trước ảnh</div>
@@ -65,7 +65,7 @@ h1{color:#1a5fa8;font-size:20px;text-align:center;margin-bottom:2px}
     <button class="btn btn-blue" id="btnRetake" onclick="openCamera()">🔄 Chụp lại</button>
   </div>
 
-  <button class="btn btn-green" id="bu" onclick="go()" disabled>⬆️ Upload lên Mạng nội bộ</button>
+  <button class="btn btn-green" id="bu" onclick="go()" disabled>⬆️ Gửi ảnh sang máy tính</button>
   <div id="st"></div>
 </div>
 
@@ -250,16 +250,12 @@ async function go() {
   try {
     var r = await fetch(sessionUrl, {
       method: 'PUT',
-      headers: {
-        'Content-Length': file.size,
-        'Content-Range' : 'bytes 0-' + (file.size - 1) + '/' + file.size,
-        'Content-Type'  : file.type || 'image/jpeg'
-      },
+      headers: { 'Content-Type': file.type || 'image/jpeg' },
       body: file
     });
      if (r.ok || r.status === 201) {
       st.className = 'st-ok';
-      st.textContent = '✅ Upload thành công! Quay lại máy tính để xem ảnh.';
+      st.textContent = '✅ Đã gửi ảnh! Máy tính sẽ nhận trong vài giây.';
   } else {
       st.className = 'st-err';
       st.textContent = '❌ Lỗi HTTP ' + r.status + '. Thử lại hoặc quét mã QR mới.';
